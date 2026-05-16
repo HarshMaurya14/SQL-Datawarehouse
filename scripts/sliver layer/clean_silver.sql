@@ -31,6 +31,7 @@ FROM (
 ) t
 WHERE flag_last = 1; 
 
+
 INSERT INTO silver.crm_prd_info (
 			prd_id,
 			cat_id,
@@ -60,4 +61,62 @@ INSERT INTO silver.crm_prd_info (
 				AS DATE
 			) AS prd_end_dt -- Calculate end date as one day before the next start date
 		FROM bronze.crm_prd_info
+
+
+
+-- 1. Insert the cleaned and transformed data into your exact Silver columns
+INSERT INTO silver.crm_sales_details (
+    sls_ord_num,
+    sls_prd_key,
+    sls_cust_id,
+    sls_order_dt,
+    sls_ship_dt,
+    sls_due_dt,
+    sls_sales,
+    sls_quantity,
+    sls_price
+)
+SELECT 
+    sls_ord_num,
+    sls_prd_key,
+    sls_cust_id,
+    
+    -- Order Date Transformation (Cleaned input mapped to sls_order_dt)
+    CASE 
+        WHEN sls_order_dt = 0 OR LEN(sls_order_dt) != 8 THEN NULL
+        ELSE CAST(CAST(sls_order_dt AS VARCHAR) AS DATE)
+    END,
+    
+    -- Shipping Date Transformation (Cleaned input mapped to sls_ship_dt)
+    CASE 
+        WHEN sls_ship_dt = 0 OR LEN(sls_ship_dt) != 8 THEN NULL
+        ELSE CAST(CAST(sls_ship_dt AS VARCHAR) AS DATE)
+    END,
+    
+    -- Due Date Transformation (Cleaned input mapped to sls_due_dt)
+    CASE 
+        WHEN sls_due_dt = 0 OR LEN(sls_due_dt) != 8 THEN NULL
+        ELSE CAST(CAST(sls_due_dt AS VARCHAR) AS DATE)
+    END,
+    
+    sls_qty,
+    
+    -- Sales Calculation Rule (Cleaned calculation mapped to sls_sales)
+    CASE 
+        WHEN sls_sales IS NULL OR sls_sales <= 0 OR sls_sales != sls_qty * ABS(sls_price) 
+            THEN sls_qty * ABS(sls_price)
+        ELSE sls_sales
+    END,
+    
+    -- Price Calculation Rule (Cleaned calculation mapped to sls_price)
+    CASE 
+        WHEN sls_price IS NULL OR sls_price <= 0 
+            THEN sls_sales / NULLIF(sls_qty, 0)
+        ELSE sls_price
+    END
+
+FROM bronze.crm_sales_details;
+
+
+
 
