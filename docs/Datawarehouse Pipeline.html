@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Warehouse Architecture – Summary</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bronze: #D97A2B;
+    --bronze-light: #FFF0DC;
+    --bronze-mid: #F5C97A;
+    --silver: #7A8CA0;
+    --silver-light: #EDF1F5;
+    --silver-mid: #B8C8D8;
+    --gold: #C9A227;
+    --gold-light: #FFFBE8;
+    --gold-mid: #F0D060;
+    --bg: #0F1117;
+    --surface: #181C26;
+    --surface2: #1F2535;
+    --text: #E8EAF0;
+    --text-muted: #7A8090;
+    --line: #2C3448;
+  }
+
+  body {
+    background: var(--bg);
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--text);
+    padding: 40px 32px 48px;
+    min-width: 900px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 20px;
+  }
+  header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  header h1 span { color: var(--gold); }
+  header .sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* ── MAIN FLOW ── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: 140px 20px 1fr 20px 1fr 20px 1fr 20px 140px;
+    gap: 0;
+    align-items: start;
+    margin-bottom: 32px;
+  }
+
+  /* ── COLUMN HEADERS ── */
+  .col-header {
+    text-align: center;
+    padding: 8px 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+  }
+  .col-header.bronze { color: var(--bronze); }
+  .col-header.silver { color: var(--silver); }
+  .col-header.gold   { color: var(--gold); }
+  .col-header.src    { color: var(--text-muted); }
+  .col-header.cons   { color: var(--text-muted); }
+
+  /* ── ARROW ── */
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 80px;
+    color: var(--text-muted);
+    font-size: 20px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    border-radius: 12px;
+    padding: 16px 18px;
+    position: relative;
+  }
+  .card.bronze { background: #1E1608; border: 1px solid #4A3010; }
+  .card.silver { background: #131820; border: 1px solid #2A3848; }
+  .card.gold   { background: #1C1A08; border: 1px solid #4A4010; }
+  .card.source { background: var(--surface2); border: 1px solid var(--line); }
+  .card.consume { background: var(--surface2); border: 1px solid var(--line); }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .bronze .dot { background: var(--bronze); }
+  .silver .dot { background: var(--silver); }
+  .gold   .dot { background: var(--gold); }
+
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .tag.bronze-t { background: #3A2008; color: var(--bronze-mid); border: 1px solid #5A3518; }
+  .tag.silver-t { background: #1A2830; color: var(--silver-mid); border: 1px solid #304050; }
+  .tag.gold-t   { background: #2A2808; color: var(--gold-mid);   border: 1px solid #504810; }
+  .tag.gray-t   { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--line); }
+
+  .section-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    margin-top: 10px;
+  }
+
+  .list-items {
+    list-style: none;
+    padding: 0;
+  }
+  .list-items li {
+    font-size: 11px;
+    color: #9AA0B0;
+    padding: 2px 0;
+    padding-left: 12px;
+    position: relative;
+  }
+  .list-items li::before {
+    content: '–';
+    position: absolute;
+    left: 0;
+    color: var(--text-muted);
+  }
+
+  .divider { height: 1px; background: var(--line); margin: 10px 0; }
+
+  /* ── TABLES FLOW ── */
+  .tables-flow {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .tf-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .tf-grid {
+    display: grid;
+    grid-template-columns: 120px 40px 1fr 40px 1fr 40px 1fr;
+    gap: 6px;
+    align-items: center;
+  }
+  .tf-src {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: right;
+    padding-right: 6px;
+  }
+  .tf-arrow {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .tf-tables {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .tf-table {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 5px;
+  }
+  .tf-table.b { background: #2A1A08; color: var(--bronze-mid); border: 1px solid #4A3010; }
+  .tf-table.s { background: #141E28; color: var(--silver-mid); border: 1px solid #2A3848; }
+  .tf-table.g { background: #221E08; color: var(--gold-mid);   border: 1px solid #4A4010; }
+
+  /* ── WORKFLOW ── */
+  .workflow {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+  .wf-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .wf-rows { display: flex; flex-direction: column; gap: 10px; }
+  .wf-row { display: flex; align-items: center; gap: 8px; }
+  .wf-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 4px;
+    width: 62px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .wf-badge.b { background: #3A2008; color: var(--bronze-mid); }
+  .wf-badge.s { background: #1A2830; color: var(--silver-mid); }
+  .wf-badge.g { background: #2A2808; color: var(--gold-mid); }
+
+  .wf-steps {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+  .wf-step {
+    background: var(--surface2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11px;
+    text-align: center;
+    flex: 1;
+  }
+  .wf-step .step-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .wf-step .step-val {
+    font-size: 11px;
+    color: var(--text);
+  }
+  .wf-arr { color: var(--text-muted); font-size: 12px; }
+
+  /* source items */
+  .src-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  .src-icon {
+    width: 28px; height: 28px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+  .src-label { font-size: 12px; font-weight: 600; }
+  .src-sub   { font-size: 10px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; }
+
+  .cons-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  .cons-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .audience-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 8px;
+  }
+  .aud-tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+  .aud-de  { background: #1A2830; color: var(--silver-mid); }
+  .aud-da  { background: #2A2808; color: var(--gold-mid); }
+  .aud-bu  { background: #3A2008; color: var(--bronze-mid); }
+
+  footer {
+    margin-top: 24px;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Data Warehouse <span>Pipeline</span> Architecture</h1>
+    <div style="margin-top:4px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#5A6070;">
+      Sources → Bronze → Silver → Gold → Consume
+    </div>
+  </div>
+  <div class="sub">Data with Baraa · SQL Server · Medallion Architecture</div>
+</header>
+
+<!-- ══════════════════════ MAIN PIPELINE ══════════════════════ -->
+<div class="pipeline">
+
+  <!-- SOURCES -->
+  <div>
+    <div class="col-header src">Sources</div>
+    <div class="card source">
+      <div class="card-title" style="font-size:12px; color:#7A8090;">Input Systems</div>
+      <div class="src-item">
+        <div class="src-icon">📁</div>
+        <div>
+          <div class="src-label">CRM</div>
+          <div class="src-sub">CSV Files</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="src-item">
+        <div class="src-icon">📁</div>
+        <div>
+          <div class="src-label">ERP</div>
+          <div class="src-sub">CSV Files</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">Interface</div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#6A7080;">Files in Folders</div>
+    </div>
+  </div>
+
+  <!-- ARROW 1 -->
+  <div class="arrow">→</div>
+
+  <!-- BRONZE -->
+  <div>
+    <div class="col-header bronze">🥉 Bronze Layer</div>
+    <div class="card bronze">
+      <div class="card-title"><div class="dot"></div>Raw Data</div>
+
+      <div class="section-label">Definition</div>
+      <div style="font-size:11px; color:#A07040;">Raw, unprocessed data as-is from sources</div>
+
+      <div class="section-label">Objective</div>
+      <div style="font-size:11px; color:#9AA0B0;">Traceability &amp; Debugging</div>
+
+      <div class="section-label">Object Type</div>
+      <div class="tag-row"><span class="tag bronze-t">Tables</span></div>
+
+      <div class="section-label">Load Method</div>
+      <div class="tag-row">
+        <span class="tag bronze-t">Batch Processing</span>
+        <span class="tag bronze-t">Full Load</span>
+        <span class="tag bronze-t">Truncate &amp; Insert</span>
+      </div>
+
+      <div class="section-label">Transformations</div>
+      <div class="tag-row"><span class="tag gray-t">None (as-is)</span></div>
+
+      <div class="section-label">Data Model</div>
+      <div class="tag-row"><span class="tag gray-t">None (as-is)</span></div>
+
+      <div class="divider"></div>
+      <div class="section-label">Target Audience</div>
+      <div class="audience-row">
+        <span class="aud-tag aud-de">Data Engineers</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW 2 -->
+  <div class="arrow">→</div>
+
+  <!-- SILVER -->
+  <div>
+    <div class="col-header silver">🥈 Silver Layer</div>
+    <div class="card silver">
+      <div class="card-title"><div class="dot"></div>Cleaned &amp; Standardized</div>
+
+      <div class="section-label">Definition</div>
+      <div style="font-size:11px; color:#7090A8;">Clean &amp; standardized data</div>
+
+      <div class="section-label">Objective</div>
+      <div style="font-size:11px; color:#9AA0B0;">Intermediate layer — prepare for analysis</div>
+
+      <div class="section-label">Object Type</div>
+      <div class="tag-row"><span class="tag silver-t">Tables</span></div>
+
+      <div class="section-label">Load Method</div>
+      <div class="tag-row">
+        <span class="tag silver-t">Batch Processing</span>
+        <span class="tag silver-t">Full Load</span>
+        <span class="tag silver-t">Truncate &amp; Insert</span>
+      </div>
+
+      <div class="section-label">Transformations</div>
+      <ul class="list-items">
+        <li>Data Cleansing</li>
+        <li>Data Standardization</li>
+        <li>Data Normalization</li>
+        <li>Derived Columns</li>
+        <li>Data Enrichment</li>
+      </ul>
+
+      <div class="section-label">Data Model</div>
+      <div class="tag-row"><span class="tag gray-t">None (as-is)</span></div>
+
+      <div class="divider"></div>
+      <div class="section-label">Target Audience</div>
+      <div class="audience-row">
+        <span class="aud-tag aud-de">Data Engineers</span>
+        <span class="aud-tag aud-da">Data Analysts</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW 3 -->
+  <div class="arrow">→</div>
+
+  <!-- GOLD -->
+  <div>
+    <div class="col-header gold">🥇 Gold Layer</div>
+    <div class="card gold">
+      <div class="card-title"><div class="dot"></div>Business-Ready Data</div>
+
+      <div class="section-label">Definition</div>
+      <div style="font-size:11px; color:#A09030;">Business-ready data for reporting &amp; analytics</div>
+
+      <div class="section-label">Objective</div>
+      <div style="font-size:11px; color:#9AA0B0;">Provide data for consumption</div>
+
+      <div class="section-label">Object Type</div>
+      <div class="tag-row"><span class="tag gold-t">Views</span></div>
+
+      <div class="section-label">Load Method</div>
+      <div class="tag-row"><span class="tag gray-t">No Load</span></div>
+
+      <div class="section-label">Transformations</div>
+      <ul class="list-items">
+        <li>Data Integration</li>
+        <li>Data Aggregation</li>
+        <li>Business Logic &amp; Rules</li>
+      </ul>
+
+      <div class="section-label">Data Model</div>
+      <div class="tag-row">
+        <span class="tag gold-t">Star Schema</span>
+        <span class="tag gold-t">Flat Table</span>
+        <span class="tag gold-t">Aggregated Table</span>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Target Audience</div>
+      <div class="audience-row">
+        <span class="aud-tag aud-da">Data Analysts</span>
+        <span class="aud-tag aud-bu">Business Users</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW 4 -->
+  <div class="arrow">→</div>
+
+  <!-- CONSUME -->
+  <div>
+    <div class="col-header cons">Consume</div>
+    <div class="card consume">
+      <div class="card-title" style="font-size:12px; color:#7A8090;">End Users</div>
+      <div class="cons-item">
+        <div class="cons-icon" style="background:#1C1A08; border:1px solid #4A4010;">📊</div>
+        <div>
+          <div class="src-label" style="color:#C9A227;">BI &amp; Reporting</div>
+          <div class="src-sub">Power BI, Tableau</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="cons-item">
+        <div class="cons-icon" style="background:#131820; border:1px solid #2A3848;">🔍</div>
+        <div>
+          <div class="src-label" style="color:#7A8CA0;">Ad-Hoc SQL</div>
+          <div class="src-sub">Direct Queries</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="cons-item">
+        <div class="cons-icon" style="background:#1A1A1A; border:1px solid #2A2A2A;">🤖</div>
+        <div>
+          <div class="src-label" style="color:#9AA0B0;">Machine Learning</div>
+          <div class="src-sub">Model Training</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════ DATA LINEAGE ══════════════════════ -->
+<div class="tables-flow">
+  <div class="tf-header">📍 Data Lineage — Table-level Flow</div>
+  <div class="tf-grid">
+
+    <div class="tf-src">CRM</div>
+    <div class="tf-arrow">→</div>
+    <div class="tf-tables">
+      <div class="tf-table b">crm_sales_details</div>
+      <div class="tf-table b">crm_cust_info</div>
+      <div class="tf-table b">crm_prd_info</div>
+    </div>
+    <div class="tf-arrow">→</div>
+    <div class="tf-tables">
+      <div class="tf-table s">crm_sales_details</div>
+      <div class="tf-table s">crm_cust_info</div>
+      <div class="tf-table s">crm_prd_info</div>
+    </div>
+    <div class="tf-arrow">→</div>
+    <div class="tf-tables">
+      <div class="tf-table g">fact_sales</div>
+      <div class="tf-table g">dim_customers</div>
+      <div class="tf-table g">dim_products</div>
+    </div>
+
+    <div class="tf-src" style="margin-top:6px">ERP</div>
+    <div class="tf-arrow" style="margin-top:6px">→</div>
+    <div class="tf-tables" style="margin-top:6px">
+      <div class="tf-table b">erp_cust_az12</div>
+      <div class="tf-table b">erp_loc_a101</div>
+      <div class="tf-table b">erp_px_cat_g1v2</div>
+    </div>
+    <div class="tf-arrow" style="margin-top:6px">→</div>
+    <div class="tf-tables" style="margin-top:6px">
+      <div class="tf-table s">erp_cust_az12</div>
+      <div class="tf-table s">erp_loc_a101</div>
+      <div class="tf-table s">erp_px_cat_g1v2</div>
+    </div>
+    <div></div>
+    <div></div>
+
+  </div>
+  <div style="margin-top:10px; font-size:10px; color:#4A5060; font-family:'IBM Plex Mono',monospace;">
+    Note: Multiple Silver tables (CRM + ERP) are merged/joined into single Gold objects via Data Integration
+  </div>
+</div>
+
+<!-- ══════════════════════ WORKFLOW PER LAYER ══════════════════════ -->
+<div class="workflow">
+  <div class="wf-header">⚙️ Engineering Workflow — Per Layer</div>
+  <div class="wf-rows">
+
+    <div class="wf-row">
+      <div class="wf-badge b">Bronze</div>
+      <div class="wf-steps">
+        <div class="wf-step">
+          <div class="step-label">Analysing</div>
+          <div class="step-val">Interview source experts</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Coding</div>
+          <div class="step-val">Data Ingestion</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Validating</div>
+          <div class="step-val">Completeness &amp; Schema checks</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Docs &amp; Version</div>
+          <div class="step-val">Document + GIT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wf-row">
+      <div class="wf-badge s">Silver</div>
+      <div class="wf-steps">
+        <div class="wf-step">
+          <div class="step-label">Analysing</div>
+          <div class="step-val">Explore &amp; understand data</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Coding</div>
+          <div class="step-val">Data Cleansing</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Validating</div>
+          <div class="step-val">Data correctness checks</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Docs &amp; Version</div>
+          <div class="step-val">Doc + Flow + GIT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wf-row">
+      <div class="wf-badge g">Gold</div>
+      <div class="wf-steps">
+        <div class="wf-step">
+          <div class="step-label">Analysing</div>
+          <div class="step-val">Explore business objects</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Coding</div>
+          <div class="step-val">Data Integration</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Validating</div>
+          <div class="step-val">Integration checks</div>
+        </div>
+        <div class="wf-arr">›</div>
+        <div class="wf-step">
+          <div class="step-label">Docs &amp; Version</div>
+          <div class="step-val">Model + Catalog + GIT</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>Summary 1 of 2 · Data with Baraa · SQL Data Warehouse from Scratch</footer>
+
+</body>
+</html>
